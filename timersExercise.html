@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset="utf-8" />
+    <title>Timers</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+
+  <body>
+
+    <h1>Timers</h1>
+
+    <!-- Create a new timer button -->
+    <button onclick="viewCreateForm()" class="add-timmer-button custom-btn">
+      Add a new Timer!
+    </button>
+
+    <!-- Creation form and overlay -->
+    <div class="overlay not-visible"></div>
+
+    <div class="create-form-wrapper not-visible">
+      <form id="add-timer" class="add-timer-form">
+        <label for="title">Timer title *</label>
+        <input type="text" id="title" name="title" />
+
+        <label for="subtitle">Timer subtitle *</label>
+        <input type="text" id="subtitle" name="subtitle" />
+
+        <div class="buttons-wrapper">
+          <button type="submit" class="custom-btn">Add Timer</button>
+          <button type="reset" class="custom-btn">Cancel</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Placeholder fot edition forms -->
+    <form id="edit-timer" class="edit-timer-form"></form>
+
+    <!-- Timers container -->
+    <div class="timers-container"></div>
+
+    <script>
+      // Get the DOM elements
+      let overlay = document.querySelector(".overlay");
+      let createFormWrapper = document.querySelector(".create-form-wrapper");
+      let timersContainer = document.querySelector(".timers-container");
+      let addTimerForm = document.querySelector("#add-timer");
+      let editTimerForm = document.querySelector("#edit-timer");
+      let timers = localStorage.getItem("dataTimers") ? JSON.parse(localStorage.getItem("dataTimers")) : [];
+
+      // Add timers to UI if there are any.
+      if (timers.length) {
+        timers.forEach(function (timer) {
+          createTimerTile(timer);
+        });
+      }
+
+      /**
+       * ---------------------------
+       * CRUD functions.
+       * ---------------------------
+       */
+
+      /**
+       * Add timer.
+       * @param {Event} event - The event object.
+       */
+      function addTimer(event) {
+        // Stop the form from reloading the page
+        event.preventDefault();
+
+        // Get the form data.
+        let formData = new FormData(addTimerForm);
+        let title = formData.get("title");
+        let subtitle = formData.get("subtitle");
+
+        // Send notification if there's any empty field.
+        if (!title || !subtitle) {
+          showStatus("Title and subtitle must be filled.");
+          return;
+        }
+
+        // Otherwise, create timer
+        createTimer(title, subtitle);
+
+        // Clear the form
+        addTimerForm.reset();
+      }
+
+      /**
+       * Search timer in timers with id.
+       * @param {String} timerId - The timer id.
+       * @return {Object} timer - The the array with the same id.
+       */
+       function searchTimer(timerId) {
+        let myTimer = timers.filter((timer) => {
+          return timer.timerId === timerId;
+        })[0];
+
+        return myTimer;
+      }
+
+      /**
+       * Edit timer.
+       * @param {Event} event - The event object.
+       */
+      function editTimer(event) {
+        // Stop the form from reloading the page.
+        event.preventDefault();
+
+        // Get the target with the timerID.
+        let timerId = editTimerForm.getAttribute("target");
+
+        let myTimer = searchTimer(timerId);
+
+        // Get the item
+        let formData = new FormData(editTimerForm);
+        let title = formData.get("title");
+        let subtitle = formData.get("subtitle");
+
+        myTimer.title = title;
+        myTimer.subtitle = subtitle;
+
+        document.querySelector("#" + timerId + " .timer-title").innerText =
+          title;
+        document.querySelector("#" + timerId + " .timer-subtitle").innerText =
+          subtitle;
+
+        updateLocalStorage(timers);
+
+        editTimerForm.parentNode.removeChild(editTimerForm);
+
+        document
+          .querySelector("#" + myTimer.timerId + " .content-container")
+          .classList.remove("visually-hidden");
+      }
+
+      /**
+       * Delete timer.
+       * @param {String} timerId - The timer's id to delete.
+       */
+      function deleteTimer(timerId) {
+        // Search target timer.
+        let myTimer = searchTimer(timerId);
+        
+        // Stop timer and animation.
+        myTimer.end = 'delete';
+        timerAnimation(myTimer);
+
+        var index = timers.indexOf(myTimer);
+
+        // If we know the index of the timer we delete it from the array.
+        if (index > -1) {
+          timers.splice(index, 1);
+          let timerTile = document.querySelector("#" + timerId);
+          timerTile.parentNode.removeChild(timerTile);
+        }
+
+        // Update local storage data.
+        updateLocalStorage(timers);
+      }
+
+      /**
+			 * Save/update the timers array in the local storage.
+ 			 * @param  {Array} array - The timers array.
+			 */
+       function updateLocalStorage(timers) {
+        let jsonData = JSON.stringify(timers);
+        localStorage.setItem("dataTimers", jsonData);
+      }
+
+      /**
+       * ---------------------------
+       * Other functions.
+       * ---------------------------
+       */
+
+      /**
+       * This function creates the timer object itself.
+       * @param {String} title - Timer title.
+       * @param {String} subtitle - Timer subtitle.
+       */
+      function createTimer(title, subtitle) {
+        // Take actual timestamp.
+        let creationMoment = new Date();
+        let timestamp = creationMoment.getTime();
+
+        // Create timer unique id.
+        let timerId = "t-" + timestamp.toString();
+
+        let timer = {
+          timerId: timerId,
+          title: title,
+          subtitle: subtitle,
+          start: timestamp,
+          end: "",
+          buffer: 0,
+        };
+
+        // Add timer to the timers array.
+        timers.push(timer);
+        // Update local store.
+        updateLocalStorage(timers);
+        // Create DOM representation of the timer.
+        createTimerTile(timer);
+      }
+
+      /**
+       * This function creates the visual representation of the timer in the DOM.
+       * @param {Object} timer - Timer object.
+       */
+      function createTimerTile(timer) {
+        // Tile html.
+        let timerHtml = `
+          <div class='content-container'>
+            <div class="text-wrapper">
+              <div class="timer-title">${timer.title}</div>
+              <div class="timer-subtitle">${timer.subtitle}</div>
+            </div>
+            <div class="timer-diff">Loading...</div>
+            <div class="edit-delete-wrapper">
+              <button class="delete" onclick="deleteTimer('${timer.timerId}')"><img src="https://img.icons8.com/external-kiranshastry-lineal-kiranshastry/64/000000/external-delete-multimedia-kiranshastry-lineal-kiranshastry.png"/></button>
+              <button class="edit" onclick="createEditTimerForm('${timer.timerId}')"><img src="https://img.icons8.com/external-kiranshastry-lineal-kiranshastry/64/000000/external-edit-interface-kiranshastry-lineal-kiranshastry.png"/></button>
+            </div>
+            <div class="start-stop-button"><button class="custom-btn" onclick="startStopTimer('${timer.timerId}')"></button></div>
+          </div>
+        `;
+        // Tile container and attributes
+        let timerContainer = document.createElement("div");
+        timerContainer.setAttribute("id", timer.timerId);
+        timerContainer.setAttribute("class", "timer-container");
+        timerContainer.innerHTML = timerHtml;
+
+        let timerStopped = timer.end !== "" ? true : false;
+
+        // Start/stop button content.
+        timerContainer.querySelector(".start-stop-button button").innerText =
+          timerStopped ? "Start" : "Stop";
+
+        if(timerStopped) {
+          timerContainer.classList.add("stop");
+        }
+
+        // Add tile to the DOM.
+        timersContainer.append(timerContainer);
+        // Trigger timer animation.
+        timerAnimation(timer);
+      }
+
+      /**
+       * This function creates the edit form in the DOM.
+       * @param {String} timerId - Timer id.
+       */
+      function createEditTimerForm(timerId) {
+        let myTimer = searchTimer(timerId);
+
+        let editFormHtml = `
+          <div class="input-label-row">
+            <label for="title">Title</label>
+            <input type="text" id="title" name="title" value="${myTimer.title}" />
+          </div>
+  
+          <div class="input-label-row">
+            <label for="subtitle">Subtitle</label>
+            <input type="text" id="subtitle" name="subtitle" value="${myTimer.subtitle}" />
+          </div>
+  
+          <button class="custom-btn">Save</button>
+        `;
+
+        // Add timer ID as a target.
+        editTimerForm.setAttribute("target", timerId);
+
+        // Add form to the DOM inside the respective tile.
+        document.querySelector("#" + myTimer.timerId).append(editTimerForm);
+
+        // Hide the tile content.
+        document
+          .querySelector("#" + myTimer.timerId + " .content-container")
+          .classList.add("visually-hidden");
+
+        // Add form content.
+        editTimerForm.innerHTML = editFormHtml;
+      }
+
+      /**
+       * Start/Stop timer.
+       * @param {String} timerId - Timer id.
+       */
+      function startStopTimer(timerId) {
+        // Log the moment when the button is clicked.
+        let startStopMoment = new Date();
+        let timestamp = startStopMoment.getTime();
+        let stop = true;
+
+        // Get target timer.
+        let myTimer = searchTimer(timerId);
+
+        // If timer was running set the new stop time.
+        if (myTimer.end === "") {
+          myTimer.end = timestamp;
+          document.querySelector("#" + myTimer.timerId).classList.add("stop");
+        } else {
+          // If timer was stopped.
+          stop = false;
+          document.querySelector("#" + myTimer.timerId).classList.remove("stop");
+
+          // Save diference in between staart and end in the buffer.
+          let diff = myTimer.end - myTimer.start;
+          myTimer.buffer += diff;
+
+          // The click moment is our new start
+          myTimer.start = timestamp;
+
+          // We need again an empty end.
+          myTimer.end = "";
+
+          // Triger tile animation.
+          timerAnimation(myTimer);
+        }
+
+        document.querySelector(
+          "#" + timerId + " .start-stop-button button"
+        ).innerText = stop ? "Start" : "Stop";
+
+        updateLocalStorage(timers);
+      }
+
+       /**
+       * This function manages the animation of the tile.
+       * @param {Object} timer - Timer object.
+       */
+      function timerAnimation(timer) {
+        let myTimer = timer;
+        let startingPoint = myTimer.start - myTimer.buffer;
+
+        // Update the count down every 1 second
+        var x = setInterval(function () {
+          if (myTimer.end === "") {
+            var now = new Date().getTime();
+            // Find the distance between now and the count down date
+            parseTime(startingPoint, now, myTimer.timerId);
+          } else if(myTimer.end === 'delete'){
+            clearInterval(x)
+          } else {
+            parseTime(startingPoint, myTimer.end, myTimer.timerId);
+            clearInterval(x);
+          }
+        }, 1000);
+      }
+
+      /**
+       * Parse timestamp in hours, minutes and seconds and print it in the specific tile.
+       * @param {Object} timer - Timer object.
+       */
+      function parseTime(startPoint, end, timerId) {
+        let hoursMinsSecs = [];
+        var distance = end - startPoint;
+
+        // Time calculations for hours, minutes and seconds
+        var hours = Math.floor(
+          (distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
+        );
+        var minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+        var seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+        hoursMinsSecs = [hours, minutes, seconds];
+
+        // Output the result in an element with id="demo"
+        document.querySelector("#" + timerId + " .timer-diff").innerHTML =
+          hoursMinsSecs[0] + "h " +
+          hoursMinsSecs[1] + "m " +
+          hoursMinsSecs[2] + "s";
+      }
+
+      /**
+       * Show status message
+       * @param  {String} item The item
+       */
+      function showStatus(item) {
+        // Create a notification
+        let notification = document.createElement("div");
+        notification.setAttribute("aria-live", "polite");
+
+        // Inject it into the DOM
+        addTimerForm.append(notification);
+
+        // Add text after it's in the UI
+        setTimeout(function () {
+          notification.textContent = item;
+        }, 1);
+
+        // Remove it after 4 seconds
+        setTimeout(function () {
+          notification.remove();
+        }, 3000);
+      }
+
+      // Hide timer creation form and overlay.
+      function hideCreateForm() {
+        overlay.classList.add("not-visible");
+        createFormWrapper.classList.add("not-visible");
+      }
+
+      // Show timer creation form and overlay.
+      function viewCreateForm() {
+        overlay.classList.remove("not-visible");
+        createFormWrapper.classList.remove("not-visible");
+      }
+
+      // Listen for events
+      addTimerForm.addEventListener("submit", addTimer);
+      addTimerForm.addEventListener("reset", hideCreateForm);
+      editTimerForm.addEventListener("submit", editTimer);
+    </script>
+  </body>
+</html>
