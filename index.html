@@ -144,24 +144,26 @@
        * @param {String} timerId - The timer's id to delete.
        */
       function deleteTimer(timerId) {
-        // Search target timer.
-        let myTimer = searchTimer(timerId);
-        
-        // Stop timer and animation.
-        myTimer.end = 'delete';
-        timerAnimation(myTimer);
-
-        var index = timers.indexOf(myTimer);
-
-        // If we know the index of the timer we delete it from the array.
-        if (index > -1) {
-          timers.splice(index, 1);
-          let timerTile = document.querySelector("#" + timerId);
-          timerTile.parentNode.removeChild(timerTile);
+        if (confirm('Are you sure you want to delete this timer?')) {
+          // Search target timer.
+          let myTimer = searchTimer(timerId);
+          
+          // Stop timer and animation.
+          myTimer.end = 'delete';
+          timerAnimation(myTimer);
+  
+          var index = timers.indexOf(myTimer);
+  
+          // If we know the index of the timer we delete it from the array.
+          if (index > -1) {
+            timers.splice(index, 1);
+            let timerTile = document.querySelector("#" + timerId);
+            timerTile.parentNode.removeChild(timerTile);
+          }
+  
+          // Update local storage data.
+          updateLocalStorage(timers);
         }
-
-        // Update local storage data.
-        updateLocalStorage(timers);
       }
 
       /**
