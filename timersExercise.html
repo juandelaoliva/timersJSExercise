@@ -6,6 +6,7 @@
     <title>Timers</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="styles.css" />
+    <link rel="icon" type="image/x-icon" href="https://favicon-generator.org/favicon-generator/htdocs/favicons/2014-12-19/11cf1d97dcb3dcad38ec213e50dd948c.ico">
   </head>
 
   <body>
@@ -48,7 +49,8 @@
       let timersContainer = document.querySelector(".timers-container");
       let addTimerForm = document.querySelector("#add-timer");
       let editTimerForm = document.querySelector("#edit-timer");
-      let timers = localStorage.getItem("dataTimers") ? JSON.parse(localStorage.getItem("dataTimers")) : [];
+      let localStorageData = localStorage.getItem('dataTimers');
+      let timers = localStorageData ? JSON.parse(localStorageData) : [];
 
       // Add timers to UI if there are any.
       if (timers.length) {
